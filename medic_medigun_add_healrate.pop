@@ -1,0 +1,103 @@
+//By Stardust
+//Intended to be used in Giant Missions with proper playable Giant Medics
+//Encourages pocketing! If you dont want to force Medic to pocket players by defualt, make a medigun via CustomWeapon and spawn this template on that Medigun.
+//Based off of heavy_minigun_overheat.pop
+WaveSchedule
+{
+    PointTemplates
+    {
+        giant_medic_healrate
+        {
+            NoFixup 1
+            OnSpawnOutput
+            {
+                Target Healing_Check // Activates the logic relay below, which triggers itself and does a few very important things
+                Action Trigger
+            }
+            logic_relay
+            {
+                "targetname" "Healing_Check"
+                "spawnflags" "2"
+                "ontrigger" "filter_heal,$testentity,@c@!activator,0,-1" // TF2 weapons are considered "children" of players, this checks for what weapon this is spawned on
+                "ontrigger" "Heal_Format,$format,,0.01,-1" // Makes the Heal Rate text appear when the PT is spawned. Stays on screen constantly because of this logic relay will trigger itself
+                "ontrigger" "heal_count,GetValue,,0.01,-1" // Gets the value of heal_count (math_counter), which means the math_counter is constantly being updated in game
+                "ontrigger" "!self,trigger,,0.1,-1"
+            }
+            $filter_sendprop
+            {
+                "targetname" "filter_heal" // checks if the player is healing something. If yes, start building up heal rate
+                "$name" "m_bHealing"
+                "$value" "1"
+                "$compare" "equal"
+                "onpass" "heal_count,add,1,0,-1" // change the "1" if you want to change how much heal rate gets added, 0.5 will add 50% heal rate.
+                //Note that the math_counter will go up by the same increments, so putting numbers like 0.2 will give you weird numbers
+            }
+            $filter_sendprop
+            {
+                "targetname" "filter_heal" // checks if the player is NOT healing something. If yes (as in the player is NOT healing anything), quickly resets heal rate.
+                "$name" "m_bHealing"
+                "$value" "1"
+                "$compare" "less than"
+                "onpass" "heal_count,subtract,20,1.5,-1" //See notes above, but now its how much heal rate is depleted every second
+            }
+            OnSpawnOutput
+            {
+                Target heal_count // set to 1 because setting to 0 will cause players to start at -100% heal rate, which is awkward
+                Action SetValue
+                Param 1
+            }
+			math_counter
+			{
+				"targetname" "heal_count" // where it all goes down
+				"max" "500" // You can adjust this to change the max heal rate
+                //Change every other instance of 500 to whatever number you choose. 
+                "min" "1"
+
+                "OnGetValue" "heal_count,$SetVar$CurrentValue,,0,-1" //Adds a variable that can store a value. This value will translate to the math_counter how much heal rate will be added when healing.
+                "OnGetValue" "player,$AddPlayerAttribute,$$='heal rate bonus|'..heal_count.CurrentValue,0,-1" // Takes the variable, then adds it as an attribute to the weapon. When the value of the variable changes, it will increase/decrease accordingly.
+
+                "onhitmax" "Heal_Format,$setkey$case16,Heal Rate: %/500,2,-1" // Allows players to see the heal rate meter go up in real time!
+          
+                "outvalue" "Compare_Heal,setvaluecompare,,0,-1" // compares the value of the math_counter, which causes the displaying stuff to work
+                "outvalue" "Heal_Format,$setkey$case01,,0,-1"
+
+			}
+            //displaying stuff
+			logic_compare
+			{
+				"targetname" "Compare_Heal"
+				"comparevalue" "0"
+				"onequalto" "Heat_Formal,$setkey$case16,Heal Rate: %/500,0,-1"  // Always keeps Heal Rate updated.
+				"ongreaterthan" "Heal_Format,$setkey$case16,Heal Rate: %/500,-1"
+			}
+			logic_case
+			{
+				"targetname" "Heal_Format" // This is what tells the game to display the numbers
+				"case16" "Heal Rate: %/500"
+				"ondefault" "Heal_Text,$setkey$message,,0,-1"
+				"ondefault" "Heal_Text,display,0,0,-1"
+			}
+			game_text // What actually gets formated. 
+			{
+				"targetname" "Heal_Text"
+				"color" "255 0 274" // Pink. Color might look bad on brighter stuff so you can change it.
+				"holdtime" "2"
+				"spawnflags" "0"
+                "channel" "2" // If this channel is used while another game_text is active at any point, change it to 1,3,4 or 5. 1 or 5 may not be available for reverse!
+				"x" "0.45"
+                "y" "-0.70"
+			}
+        }
+    }
+
+    PlayerItemEquipSpawnTemplate [$SIGSEGV] 
+	{
+		Name giant_medic_healrate
+		Classname "TF_WEAPON_MEDIGUN" 
+	}
+    ItemAttributes
+    {
+        Itemname "TF_WEAPON_MEDIGUN"
+        "special item description" "Healing patients will increase the heal rate. '1' on the Heal Rate meter equals 100% heal rate bonus."
+    }
+}

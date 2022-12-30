@@ -1,0 +1,157 @@
+//By Stardust
+//Intended to be used on Giant missions to make balancing Heavy easier, since he's the strongest Valve giant when made playable.
+//Very similar to medic_medigun_add_healrate.pop
+//Lite helped me with this one too.
+
+WaveSchedule
+{
+    PointTemplates
+    {
+        minigun_overheat // with help from lite
+        {
+            NoFixup 1
+            OnSpawnOutput
+            {
+                Target Firing_Check //Triggers the looping relay below
+                Action Trigger
+            }
+            logic_relay
+            {
+                "targetname" "Firing_Check" // checks a bunch of important things
+                "spawnflags" "2"
+                "ontrigger" "filter_spun,$testentity,@c@!activator,0,-1" // TF2 weapons are considered "children" of players, this checks for what weapon it is spawned on
+                //ALERT! Please check https://sigwiki.potato.tf/index.php/Entity_Properties if you wish to check for how other weapons fire. This is a minigun exclusive thing!
+                //Some weapons may not have a concise way of checking when they fire.
+                "ontrigger" "Heat_Format,$format,,0.01,-1" // causes the text to appear on screen
+                "ontrigger" "!self,trigger,,0.1,-1"
+            }
+            $filter_sendprop
+            {
+                "targetname" "filter_spun" // filters if the user is firing the weapon. If yes, add heat
+                "$name" "m_iWeaponState"
+                "$value" "2"
+                "$compare" "equal"
+                "onpass" "heat_count,add,2,0,-1"
+            }
+            $filter_sendprop
+            {
+                "targetname" "filter_spun" // filters if the user is firing the weapon. If no, remove heat
+                "$name" "m_iWeaponState"
+                "$value" "2"
+                "$compare" "greater than"
+                "onpass" "heat_count,subtract,2,1.5,-1"
+            }
+            OnSpawnOutput
+            {
+                Target heat_count
+                Action SetValue
+                Param 0
+            }
+			math_counter
+			{
+				"targetname" "heat_count"
+				"max" "250" // You can increase the value to increase how long the user can fire for, and vice versa!
+                //Change every other instance of 250 to whatever number you choose. 
+                "onhitmax" "overheated,Trigger,,0,-1" // when 250 (or whatever the max is) is hit, causes the relay below to trigger
+                "onhitmax" "Heat_Format,$setkey$case16,Overheat: %/250,2,-1" // causes the text to updated with values when the max is hit
+                "onhitmin" "!activator,$RemoveItemAttribute,no_attack|0,0,-1" // When the counter hits 0, removes this attribute. no_attack will disallow the user from spinning their minigun.
+
+                "onhitmin" "cooldown,$CancelPending,,0,-1" // When 0 is hit, cancels any inputs the relay below will fire. Stops the user from being unable to fire permantly.
+                "outvalue" "Compare_Heat,setvaluecompare,,0,-1" // Compares the value, which allows for real time number updates
+                "outvalue" "Heat_Format,$setkey$case01,,0,-1"
+
+                "onhitmax" "overheat1,playsound,!activator,0,-1" // Plays the below ambient_generics to indicate that the user has overheated and cannot fire.
+                "onhitmax" "overheat1,stopsound,!activator,5,-1"
+
+                "onhitmin" "overheat2,playsound,!activator,0,-1" // Plays the below ambient_generics to indicate that the user can fire their weapon again.
+                "onhitmin" "overheat2,stopsound,!activator,5,-1"
+			}
+            ambient_generic
+            {
+                "targetname" "overheat1"
+                "message" "weapons\bumper_car_decelerate.wav"
+                "health" "10"
+                "pitch" "100"
+                "radius" "5000"
+                "spawnflags" "16"
+                "sourceentityname" "!parent"
+            }
+            ambient_generic
+            {
+                "targetname" "overheat1"
+                "message" "weapons\bumper_car_decelerate.wav"
+                "health" "10"
+                "pitch" "100"
+                "radius" "5000"
+                "spawnflags" "16"
+                "sourceentityname" "!parent"
+            }
+            ambient_generic
+            {
+                "targetname" "overheat2"
+                "message" "weapons\bumper_car_accelerate.wav"
+                "health" "10"
+                "pitch" "100"
+                "radius" "5000"
+                "spawnflags" "16"
+                "sourceentityname" "!parent"
+            }
+            ambient_generic
+            {
+                "targetname" "overheat2"
+                "message" "weapons\bumper_car_accelerate.wav"
+                "health" "10"
+                "pitch" "100"
+                "radius" "5000"
+                "spawnflags" "16"
+                "sourceentityname" "!parent"
+            }
+            logic_relay
+            {
+                "targetname" "overheated" // gets triggered by math_counter when it hits the max
+                "spawnflags" "2"
+
+                "OnTrigger" "cooldown,Trigger,,3,-1" //Triggers after 3 seconds
+                "OnTrigger" "!activator,$AddItemAttribute,no_attack|1|0,0,-1" // Adds "no_attack" to the minigun this is spawned on
+            }
+            logic_relay
+            {
+                "targetname" "cooldown" // when the minigun is fully overheated, this reduces overheat by 75 until the overheat hits 0.
+                //Gets automatically canceled when 0 is hit.
+                "spawnflags" "2"
+                "OnTrigger" "heat_count,subtract,75,,-1"
+                "OnTrigger" "!self,Trigger,,1,-1"
+            }
+			logic_compare
+			{
+				"targetname" "Compare_Heat" // compares things to display to the player
+				"comparevalue" "0"
+				"onequalto" "Heat_Format,$setkey$case16,Overheat: %/250,0,-1"
+				"ongreaterthan" "Heat_Format,$setkey$case16,Overheat: %/250,-1"
+			}
+			logic_case
+			{
+				"targetname" "Heat_Format" // displays stuff to the player
+				"case16" "Overheat: %/250"
+				"ondefault" "Heat_Text,$setkey$message,,0,-1"
+				"ondefault" "Heat_Text,display,0,0,-1"
+			}
+			game_text
+			{
+				"targetname" "Heat_Text" // what gets displayed.
+				"color" "209 99 7"
+				"holdtime" "2"
+				"spawnflags" "0"
+                "channel" "2" // If this channel is used, change it to 1,3,4 or 5. 1 or 5 may not be available for reverse!
+				"x" "0.45"
+                "y" "-0.70"
+			}
+        }
+
+        PlayerItemEquipSpawnTemplate [$SIGSEGV]
+        {
+            Name minigun_overheat
+            Classname "TF_WEAPON_MINIGUN"
+        }
+    }
+}
